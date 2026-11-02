@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>중고 스마트폰 추천</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef1f4; --surface: #ffffff; --ink: #1b2430; --muted: #5d6877;
+    --line: #d5dbe2; --accent: #0f6e7a; --accent-ink: #ffffff; --warm: #e8743b;
+    --cool: #5aa9c9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141a21; --surface: #1d252e; --ink: #e8edf2; --muted: #9aa6b4;
+      --line: #2e3945; --accent: #4fb5c2; --accent-ink: #0d1a1d; --warm: #f08a57;
+      --cool: #6bb8d6;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "IBM Plex Sans KR", system-ui, sans-serif; line-height: 1.6;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
+  h1 { font-size: 1.75rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); margin: 0 0 32px; }
+  label.field, .field-title { display: block; font-weight: 700; margin-bottom: 8px; }
+  input[type=text] {
+    width: 100%; padding: 12px 14px; font: inherit; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  }
+  input[type=text]:focus-visible, button:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px;
+  }
+  .hint { color: var(--muted); font-size: .9rem; margin: 0 0 10px; }
+  .block { margin-bottom: 28px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px;
+    font: inherit; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  }
+  .chip .rank {
+    display: none; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-ink);
+    font-size: .8rem; font-weight: 700; align-items: center; justify-content: center;
+  }
+  .chip[aria-pressed=true] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+  .chip[aria-pressed=true] .rank { display: inline-flex; }
+  .chip[disabled] { opacity: .45; cursor: not-allowed; }
+  .go {
+    width: 100%; padding: 14px; font: inherit; font-weight: 700; cursor: pointer;
+    color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 8px;
+  }
+  .go[disabled] { opacity: .45; cursor: not-allowed; }
+  #msg { margin-top: 16px; color: var(--muted); }
+  #msg.error { color: var(--warm); }
+
+  .result {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px; margin-top: 16px; display: grid; gap: 14px;
+    grid-template-columns: 1fr 64px; align-items: start;
+  }
+  .result.top { border-color: var(--accent); border-width: 2px; }
+  .result h2 { margin: 0; font-size: 1.1rem; }
+  .price { font-size: 1.4rem; font-weight: 700; margin: 2px 0 10px; }
+  .badge { font-size: .8rem; color: var(--accent); font-weight: 700; margin-left: 8px; }
+  .bars { display: grid; gap: 6px; font-size: .88rem; color: var(--muted); }
+  .bar-row { display: grid; grid-template-columns: 84px 1fr 36px; gap: 8px; align-items: center; }
+  .track { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .fill { height: 100%; background: var(--accent); border-radius: 4px; }
+  .tests { margin-top: 10px; font-size: .88rem; color: var(--muted); }
+  .tests b { color: var(--ink); font-weight: 500; }
+  .score { text-align: right; }
+  .score strong { display: block; font-size: 1.6rem; line-height: 1.1; }
+  .score span { font-size: .8rem; color: var(--muted); }
+
+  /* 환경온도 온도계 */
+  .thermo { grid-column: 2; grid-row: 1 / span 2; justify-self: end; text-align: center; font-size: .8rem; color: var(--muted); }
+  .tube { width: 14px; height: 90px; margin: 6px auto; border-radius: 7px; background: var(--line); position: relative; overflow: hidden; }
+  .mercury { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(var(--warm), var(--cool)); }
+  .thermo strong { color: var(--ink); font-size: 1rem; }
+  @media (max-width: 480px) { .result { grid-template-columns: 1fr 54px; } }
+  @media (prefers-reduced-motion: no-preference) { .fill, .mercury { transition: all .5s ease; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>내게 맞는 중고 스마트폰 찾기</h1>
+  <p class="sub">기종과 중요한 성능 3가지를 고르면, 가격이 합리적이고 환경온도가 높은 순으로 보여드려요.</p>
+
+  <div class="block">
+    <label class="field" for="model">기종</label>
+    <input id="model" type="text" list="models" placeholder="예: 갤럭시 S23" autocomplete="off">
+    <datalist id="models"><option value="갤럭시 S23"><option value="아이폰 14"></datalist>
+  </div>
+
+  <div class="block">
+    <div class="field-title" id="prio-title">중요한 성능 3가지</div>
+    <p class="hint">중요한 순서대로 눌러 주세요. 다시 누르면 선택이 취소돼요.</p>
+    <div class="chips" id="chips" role="group" aria-labelledby="prio-title"></div>
+  </div>
+
+  <button class="go" id="go" disabled>추천 받기</button>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div id="results"></div>
+</main>
+
+<script>
+const TESTS = [
+  ["camera", "카메라"], ["mic", "마이크"], ["speaker", "스피커"],
+  ["gyro", "자이로"], ["touch", "터치"]
+];
+const LABEL = Object.fromEntries(TESTS);
+let picked = [];
+
+const chips = document.getElementById("chips");
+const go = document.getElementById("go");
+const msg = document.getElementById("msg");
+const results = document.getElementById("results");
+const modelInput = document.getElementById("model");
+
+function renderChips() {
+  chips.innerHTML = "";
+  TESTS.forEach(([key, name]) => {
+    const idx = picked.indexOf(key);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.setAttribute("aria-pressed", idx >= 0);
+    b.disabled = idx < 0 && picked.length >= 3;
+    b.innerHTML = `<span class="rank">${idx + 1}</span>${name}`;
+    b.addEventListener("click", () => {
+      picked = idx >= 0 ? picked.filter(k => k !== key) : [...picked, key];
+      renderChips(); updateGo();
+    });
+    chips.appendChild(b);
+  });
+}
+function updateGo() {
+  go.disabled = !(modelInput.value.trim() && picked.length === 3);
+}
+modelInput.addEventListener("input", updateGo);
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const won = n => n.toLocaleString("ko-KR") + "원";
+
+function bar(label, v) {
+  return `<div class="bar-row"><span>${label}</span><div class="track"><div class="fill" style="width:${v}%"></div></div><span>${Math.round(v)}</span></div>`;
+}
+
+function card(item, i) {
+  const b = item.breakdown;
+  const tests = picked.map(k => `${LABEL[k]} <b>${item.scores[k]}</b>`).join(" / ");
+  return `
+  <article class="result ${i === 0 ? "top" : ""}">
+    <div>
+      <h2>${esc(item.model)}${i === 0 ? '<span class="badge">가장 추천</span>' : ""}</h2>
+      <div class="price">${won(item.price)}</div>
+      <div class="bars">
+        ${bar("성능", b.performance)}
+        ${bar("가격 합리성", b.price)}
+        ${bar("환경온도", b.eco)}
+      </div>
+      <div class="tests">선택한 성능: ${tests}</div>
+    </div>
+    <div class="thermo" aria-label="환경온도 ${item.eco_temp}도">
+      <div class="tube"><div class="mercury" style="height:${item.eco_temp}%"></div></div>
+      <strong>${item.eco_temp}°</strong>
+    </div>
+    <div class="score"><strong>${item.final_score}</strong><span>종합</span></div>
+  </article>`;
+}
+
+go.addEventListener("click", async () => {
+  msg.className = ""; msg.textContent = "찾는 중이에요…"; results.innerHTML = "";
+  go.disabled = true;
+  try {
+    const res = await fetch("/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_model: modelInput.value.trim(), priorities: picked })
+    });
+    if (res.status === 404) {
+      msg.textContent = "조건에 맞는 매물이 없어요. 기종 이름을 바꾸거나 성능 선택을 바꿔 보세요.";
+      return;
+    }
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    msg.textContent = `${data.count}개를 찾았어요.`;
+    results.innerHTML = data.items.map(card).join("");
+  } catch {
+    msg.className = "error";
+    msg.textContent = "서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.";
+  } finally {
+    updateGo();
+  }
+});
+
+renderChips();
+</script>
+</body>
+</html>
